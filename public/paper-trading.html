@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paper Trading</title>
+    <style>
+      :root {
+        --bg: #03110a;
+        --panel: rgba(8, 28, 18, 0.92);
+        --line: rgba(42, 255, 138, 0.16);
+        --text: #d9ffe4;
+        --muted: #81c99a;
+        --accent: #2aff8a;
+        --danger: #ff6b6b;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Consolas, "SFMono-Regular", Menlo, monospace;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top right, rgba(42, 255, 138, 0.12), transparent 30%),
+          linear-gradient(180deg, #020b06 0%, #05160c 100%);
+      }
+
+      .page {
+        width: min(1080px, calc(100vw - 24px));
+        margin: 20px auto 36px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 18px;
+        margin-bottom: 16px;
+      }
+
+      h1, h2 { margin: 0 0 10px; }
+      p { margin: 0; color: var(--muted); }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      input, select, button {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid rgba(42, 255, 138, 0.24);
+        background: rgba(2, 16, 8, 0.96);
+        color: var(--text);
+        padding: 12px 14px;
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+        background: linear-gradient(135deg, rgba(42,255,138,0.22), rgba(42,255,138,0.08));
+      }
+
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .stat {
+        background: rgba(0, 10, 4, 0.78);
+        border: 1px solid rgba(42, 255, 138, 0.12);
+        border-radius: 14px;
+        padding: 14px;
+      }
+
+      .stat strong {
+        display: block;
+        margin-top: 10px;
+        font-size: 1.4rem;
+      }
+
+      .rows {
+        display: grid;
+        gap: 10px;
+      }
+
+      .row {
+        background: rgba(0, 8, 3, 0.75);
+        border: 1px solid rgba(42, 255, 138, 0.12);
+        border-radius: 14px;
+        padding: 12px;
+      }
+
+      .positive { color: var(--accent); }
+      .negative { color: var(--danger); }
+      .topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      @media (max-width: 900px) {
+        .grid, .summary, .form-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <section class="panel">
+        <div class="topline">
+          <div>
+            <h1>Paper Trading Desk</h1>
+            <p>Simulate buys, sells, cash movements, and review portfolio impact in real time.</p>
+          </div>
+          <button id="backBtn" style="max-width:220px;">Back to Dashboard</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="form-grid">
+          <input id="tokenInput" type="password" placeholder="AUTH_TOKEN" />
+          <input id="userIdInput" type="text" placeholder="User ID" value="demo_user" />
+          <input id="symbolInput" type="text" placeholder="Symbol" value="AAPL" />
+          <button id="loadBtn">Load Portfolio</button>
+        </div>
+        <div class="summary" style="margin-top:16px;">
+          <div class="stat"><span>Cash</span><strong id="cashValue">$0.00</strong></div>
+          <div class="stat"><span>Total Value</span><strong id="totalValue">$0.00</strong></div>
+          <div class="stat"><span>Unrealized P&amp;L</span><strong id="pnlValue">$0.00</strong></div>
+          <div class="stat"><span>Projected Dividends</span><strong id="dividendValue">$0.00</strong></div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <h2>Trade Ticket</h2>
+          <div class="form-grid">
+            <select id="actionInput">
+              <option value="buy">Buy</option>
+              <option value="sell">Sell</option>
+              <option value="deposit">Deposit</option>
+              <option value="withdraw">Withdraw</option>
+            </select>
+            <input id="sharesInput" type="number" step="0.0001" placeholder="Shares" value="10" />
+            <input id="priceInput" type="number" step="0.01" placeholder="Optional manual price" />
+            <input id="cashAmountInput" type="number" step="0.01" placeholder="Cash amount for deposit/withdraw" />
+          </div>
+          <button id="submitTradeBtn" style="margin-top:14px;">Submit Trade</button>
+        </article>
+
+        <article class="panel">
+          <h2>Quick Notes</h2>
+          <div class="rows">
+            <div class="row">Use BUY or SELL for simulated trades against the latest cached market price unless you provide a manual fill price.</div>
+            <div class="row">Use DEPOSIT or WITHDRAW to move virtual cash in or out of the account without touching holdings.</div>
+            <div class="row">The server recalculates unrealized P&amp;L, beta, dividend estimates, and position values after each trade.</div>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <h2>Open Positions</h2>
+          <div id="holdings" class="rows"></div>
+        </article>
+        <article class="panel">
+          <h2>Recent Transactions</h2>
+          <div id="transactions" class="rows"></div>
+        </article>
+      </section>
+    </div>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const state = {
+        token: params.get("token") || localStorage.getItem("stock-token") || "",
+        userId: params.get("userId") || localStorage.getItem("stock-user-id") || "demo_user"
+      };
+
+      const tokenInput = document.getElementById("tokenInput");
+      const userIdInput = document.getElementById("userIdInput");
+      const symbolInput = document.getElementById("symbolInput");
+      tokenInput.value = state.token;
+      userIdInput.value = state.userId;
+
+      function currency(value) {
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 2
+        }).format(Number(value || 0));
+      }
+
+      function relativeTime(timestamp) {
+        if (!timestamp) return "unknown";
+        const diff = Math.max(0, Date.now() - Number(timestamp));
+        if (diff < 60000) return "just now";
+        if (diff < 3600000) return Math.round(diff / 60000) + "m ago";
+        if (diff < 86400000) return Math.round(diff / 3600000) + "h ago";
+        return Math.round(diff / 86400000) + "d ago";
+      }
+
+      function api(path, options = {}) {
+        state.token = tokenInput.value.trim();
+        state.userId = userIdInput.value.trim() || "demo_user";
+        localStorage.setItem("stock-token", state.token);
+        localStorage.setItem("stock-user-id", state.userId);
+        return fetch(path, {
+          ...options,
+          headers: {
+            Authorization: "Bearer " + state.token,
+            "Content-Type": "application/json"
+          }
+        }).then(async (response) => {
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || "Request failed");
+          return data;
+        });
+      }
+
+      function renderPortfolio(portfolio) {
+        document.getElementById("cashValue").textContent = currency(portfolio.cash);
+        document.getElementById("totalValue").textContent = currency(portfolio.totalValue);
+        const pnlNode = document.getElementById("pnlValue");
+        pnlNode.textContent = currency(portfolio.totalUnrealizedPnL);
+        pnlNode.className = portfolio.totalUnrealizedPnL >= 0 ? "positive" : "negative";
+        document.getElementById("dividendValue").textContent = currency(portfolio.dividendTracker?.projectedAnnualIncome || 0);
+
+        document.getElementById("holdings").innerHTML = portfolio.holdings.length
+          ? portfolio.holdings
+              .map(
+                (holding) => `
+                  <div class="row">
+                    <div class="topline">
+                      <strong>${holding.symbol}</strong>
+                      <span class="${holding.unrealizedPnL >= 0 ? "positive" : "negative"}">${currency(holding.unrealizedPnL)}</span>
+                    </div>
+                    <p>${holding.shares} shares @ ${currency(holding.avgPrice)}</p>
+                    <p>${currency(holding.currentPrice)} current • updated ${holding.relativeUpdatedAt}</p>
+                  </div>
+                `
+              )
+              .join("")
+          : '<div class="row">No open positions.</div>';
+
+        document.getElementById("transactions").innerHTML = portfolio.transactions.length
+          ? portfolio.transactions
+              .map(
+                (tx) => `
+                  <div class="row">
+                    <div class="topline">
+                      <strong>${(tx.type || "").toUpperCase()}</strong>
+                      <span>${relativeTime(tx.time)}</span>
+                    </div>
+                    <p>${tx.symbol || "Cash movement"} ${tx.shares ? "• " + tx.shares + " shares" : ""}</p>
+                    <p>${tx.total ? currency(tx.total) : currency(tx.amount || 0)}</p>
+                  </div>
+                `
+              )
+              .join("")
+          : '<div class="row">No transactions yet.</div>';
+      }
+
+      async function loadPortfolio() {
+        const data = await api("/api/portfolio/" + encodeURIComponent(userIdInput.value.trim() || "demo_user"));
+        renderPortfolio(data);
+      }
+
+      async function submitTrade() {
+        const action = document.getElementById("actionInput").value;
+        const payload = {
+          userId: userIdInput.value.trim() || "demo_user",
+          action,
+          symbol: symbolInput.value.trim().toUpperCase(),
+          shares: Number(document.getElementById("sharesInput").value),
+          price: document.getElementById("priceInput").value ? Number(document.getElementById("priceInput").value) : undefined,
+          cashAmount: document.getElementById("cashAmountInput").value ? Number(document.getElementById("cashAmountInput").value) : undefined
+        };
+        const data = await api("/api/portfolio/add", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        renderPortfolio(data);
+      }
+
+      document.getElementById("loadBtn").addEventListener("click", () => loadPortfolio().catch((error) => alert(error.message)));
+      document.getElementById("submitTradeBtn").addEventListener("click", () => submitTrade().catch((error) => alert(error.message)));
+      document.getElementById("backBtn").addEventListener("click", () => {
+        window.location.href = "/";
+      });
+
+      if (state.token) {
+        loadPortfolio().catch(() => {});
+      }
+    </script>
+  </body>
+</html>

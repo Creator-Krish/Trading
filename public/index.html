@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stock Intelligence Platform</title>
+    <link
+      rel="icon"
+      href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="%2306120b"/><rect x="8" y="10" width="48" height="36" rx="4" fill="%230a2215" stroke="%232aff8a" stroke-width="3"/><path d="M17 28h12M17 36h18M17 20h20" stroke="%232aff8a" stroke-width="4" stroke-linecap="round"/><path d="M24 52h16" stroke="%232aff8a" stroke-width="4" stroke-linecap="round"/></svg>'
+    />
+    <style>
+      :root {
+        --bg: #021008;
+        --panel: rgba(5, 22, 14, 0.88);
+        --panel-strong: rgba(8, 32, 19, 0.95);
+        --line: rgba(62, 255, 143, 0.2);
+        --text: #ccffd7;
+        --muted: #7acb95;
+        --accent: #2aff8a;
+        --accent-soft: rgba(42, 255, 138, 0.12);
+        --danger: #ff6b6b;
+        --warning: #ffd166;
+        --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+        --radius: 18px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Consolas, "SFMono-Regular", Menlo, monospace;
+        background:
+          radial-gradient(circle at top right, rgba(42, 255, 138, 0.14), transparent 32%),
+          radial-gradient(circle at bottom left, rgba(42, 255, 138, 0.08), transparent 35%),
+          linear-gradient(180deg, #020b06 0%, #03140a 100%);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background-image: linear-gradient(rgba(42, 255, 138, 0.03) 1px, transparent 1px);
+        background-size: 100% 3px;
+        opacity: 0.3;
+      }
+
+      .shell {
+        width: min(1440px, calc(100vw - 24px));
+        margin: 18px auto 32px;
+      }
+
+      .topbar,
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(12px);
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 18px;
+        padding: 18px;
+        position: sticky;
+        top: 12px;
+        z-index: 10;
+      }
+
+      .title {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+
+      h1 {
+        font-size: clamp(1.3rem, 2vw, 2rem);
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .auth-grid,
+      .toolbar-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .toolbar-row {
+        margin-top: 12px;
+      }
+
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 0.78rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      input,
+      select,
+      button,
+      textarea {
+        border-radius: 12px;
+        border: 1px solid rgba(42, 255, 138, 0.24);
+        background: rgba(2, 16, 8, 0.95);
+        color: var(--text);
+        padding: 12px 14px;
+        font: inherit;
+      }
+
+      textarea {
+        min-height: 96px;
+        resize: vertical;
+      }
+
+      button {
+        cursor: pointer;
+        transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        border-color: rgba(42, 255, 138, 0.55);
+        background: rgba(16, 52, 31, 0.95);
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, rgba(42, 255, 138, 0.22), rgba(42, 255, 138, 0.1));
+      }
+
+      .status-line {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        justify-content: flex-end;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--line);
+        padding: 8px 12px;
+        border-radius: 999px;
+        color: var(--muted);
+        background: rgba(1, 11, 5, 0.86);
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--warning);
+        box-shadow: 0 0 12px currentColor;
+      }
+
+      .dot.live {
+        background: var(--accent);
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin: 18px 0;
+      }
+
+      .metric {
+        padding: 16px;
+      }
+
+      .metric strong {
+        display: block;
+        font-size: 1.5rem;
+        margin-top: 12px;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 320px minmax(0, 1fr) 360px;
+        gap: 18px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 18px;
+      }
+
+      .card {
+        padding: 18px;
+      }
+
+      .card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .watchlist-items,
+      .alerts-list,
+      .news-feed,
+      .positions,
+      .heatmap {
+        display: grid;
+        gap: 10px;
+      }
+
+      .watch-item,
+      .alert-item,
+      .news-item,
+      .position,
+      .heat-row {
+        border: 1px solid rgba(42, 255, 138, 0.12);
+        border-radius: 14px;
+        padding: 12px;
+        background: rgba(0, 10, 4, 0.8);
+      }
+
+      .quote-hero {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 16px;
+      }
+
+      .quote-values {
+        display: grid;
+        gap: 10px;
+      }
+
+      .big-number {
+        font-size: clamp(2rem, 4vw, 3.2rem);
+        line-height: 1;
+      }
+
+      .positive {
+        color: var(--accent);
+      }
+
+      .negative {
+        color: var(--danger);
+      }
+
+      .chart-wrap {
+        margin-top: 14px;
+        padding: 14px;
+        border-radius: 16px;
+        background: rgba(0, 8, 3, 0.82);
+        border: 1px solid rgba(42, 255, 138, 0.14);
+      }
+
+      canvas {
+        width: 100%;
+        height: 240px;
+        display: block;
+      }
+
+      .timeframe-row,
+      .quick-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .mini-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .news-meter {
+        height: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 999px;
+        overflow: hidden;
+        border: 1px solid rgba(42, 255, 138, 0.16);
+      }
+
+      .news-meter span {
+        display: block;
+        height: 100%;
+        width: 50%;
+        background: linear-gradient(90deg, #ff6b6b, #ffd166, #2aff8a);
+      }
+
+      .table-wrap {
+        overflow: auto;
+        border-radius: 14px;
+        border: 1px solid rgba(42, 255, 138, 0.14);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 780px;
+      }
+
+      th,
+      td {
+        padding: 12px 10px;
+        text-align: left;
+        border-bottom: 1px solid rgba(42, 255, 138, 0.08);
+        font-size: 0.9rem;
+      }
+
+      .signal-badge,
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 6px 10px;
+        border: 1px solid rgba(42, 255, 138, 0.16);
+        background: rgba(42, 255, 138, 0.08);
+      }
+
+      .error {
+        color: var(--danger);
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .loading {
+        opacity: 0.72;
+      }
+
+      .inline-form {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .inline-form > * {
+        flex: 1;
+        min-width: 130px;
+      }
+
+      .footer-note {
+        margin-top: 18px;
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      @media (max-width: 1180px) {
+        .topbar,
+        .layout,
+        .quote-hero {
+          grid-template-columns: 1fr;
+        }
+
+        .metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 720px) {
+        .shell {
+          width: min(100vw - 14px, 100%);
+          margin-top: 10px;
+        }
+
+        .metrics,
+        .mini-grid,
+        .auth-grid,
+        .toolbar-row {
+          grid-template-columns: 1fr;
+        }
+
+        .card,
+        .topbar {
+          padding: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <section class="topbar">
+        <div class="title">
+          <h1>Stock Intelligence Platform</h1>
+          <p>JSON-native market research, paper portfolio tracking, alerts, and live dashboards tuned for Render’s free tier.</p>
+        </div>
+        <div>
+          <div class="auth-grid">
+            <label>
+              Bearer Token
+              <input id="tokenInput" type="password" placeholder="AUTH_TOKEN" />
+            </label>
+            <label>
+              User ID
+              <input id="userIdInput" type="text" value="demo_user" />
+            </label>
+            <label>
+              Focus Symbol
+              <input id="symbolInput" type="text" value="AAPL" />
+            </label>
+          </div>
+          <div class="toolbar-row">
+            <button id="connectBtn" class="btn-primary">Connect Dashboard</button>
+            <button id="refreshBtn">Refresh Snapshot</button>
+            <button id="openPaperTradingBtn">Open Paper Trading</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="metrics">
+        <div class="card metric">
+          <span class="muted">Realtime Link</span>
+          <strong id="linkStatus">Idle</strong>
+        </div>
+        <div class="card metric">
+          <span class="muted">Server RAM</span>
+          <strong id="ramValue">0 MB</strong>
+        </div>
+        <div class="card metric">
+          <span class="muted">Portfolio Value</span>
+          <strong id="portfolioValue">$0.00</strong>
+        </div>
+        <div class="card metric">
+          <span class="muted">Alerts Waiting</span>
+          <strong id="alertCount">0</strong>
+        </div>
+      </section>
+
+      <section class="layout">
+        <div class="stack">
+          <article class="card">
+            <div class="card-header">
+              <h2>Watchlist</h2>
+              <span class="pill"><span class="dot" id="watchlistDot"></span>live</span>
+            </div>
+            <form id="watchlistForm" class="inline-form">
+              <input id="watchlistSymbol" type="text" placeholder="Add symbol" />
+              <button type="submit">Add</button>
+            </form>
+            <div class="watchlist-items" id="watchlistItems"></div>
+          </article>
+
+          <article class="card">
+            <div class="card-header">
+              <h2>Sector Heatmap</h2>
+              <span class="muted">Top sectors by market cap</span>
+            </div>
+            <div class="heatmap" id="heatmap"></div>
+          </article>
+
+          <article class="card">
+            <div class="card-header">
+              <h2>Alerts</h2>
+              <span class="muted">Checked every minute</span>
+            </div>
+            <form id="alertForm" class="stack">
+              <div class="inline-form">
+                <input id="alertSymbol" type="text" placeholder="Symbol" />
+                <select id="alertCondition">
+                  <option value="above">Above</option>
+                  <option value="below">Below</option>
+                </select>
+                <input id="alertTarget" type="number" step="0.01" placeholder="Target price" />
+              </div>
+              <button type="submit">Create Alert</button>
+            </form>
+            <div class="alerts-list" id="alertsList"></div>
+          </article>
+        </div>
+
+        <div class="stack">
+          <article class="card">
+            <div class="card-header">
+              <h2>Quote Terminal</h2>
+              <div class="status-line">
+                <span class="pill"><span class="dot" id="realtimeDot"></span><span id="realtimeLabel">offline</span></span>
+                <span class="pill" id="lastUpdateLabel">waiting for data</span>
+              </div>
+            </div>
+            <div class="quote-hero">
+              <div class="quote-values">
+                <span class="muted" id="quoteName">Select a symbol</span>
+                <div class="big-number" id="quotePrice">$0.00</div>
+                <div id="quoteChange" class="signal-badge">0.00%</div>
+                <div class="quick-row">
+                  <span class="chip" id="signalTypeChip">Signal: HOLD</span>
+                  <span class="chip" id="signalStrengthChip">Strength: 50%</span>
+                  <span class="chip" id="quoteMetaChip">Source: cache</span>
+                </div>
+                <div class="timeframe-row">
+                  <button data-days="5" class="timeframe-btn">5D</button>
+                  <button data-days="30" class="timeframe-btn btn-primary">1M</button>
+                  <button data-days="90" class="timeframe-btn">3M</button>
+                  <button data-days="180" class="timeframe-btn">6M</button>
+                  <button data-days="365" class="timeframe-btn">1Y</button>
+                </div>
+              </div>
+              <div class="mini-grid">
+                <div class="card" style="padding: 14px;">
+                  <span class="muted">Open / High / Low</span>
+                  <strong id="ohlcText">$0.00 / $0.00 / $0.00</strong>
+                </div>
+                <div class="card" style="padding: 14px;">
+                  <span class="muted">News Sentiment</span>
+                  <strong id="sentimentValue">50 / 100</strong>
+                  <div class="news-meter" style="margin-top: 10px;"><span id="sentimentBar"></span></div>
+                </div>
+                <div class="card" style="padding: 14px;">
+                  <span class="muted">Volume</span>
+                  <strong id="volumeValue">0</strong>
+                </div>
+                <div class="card" style="padding: 14px;">
+                  <span class="muted">Last Refreshed</span>
+                  <strong id="quoteUpdatedAt">unknown</strong>
+                </div>
+              </div>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="chartCanvas" width="900" height="260"></canvas>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-header">
+              <h2>Market Screener</h2>
+              <span class="muted">Supports 20+ filters on the backend</span>
+            </div>
+            <form id="screenerForm" class="inline-form">
+              <input id="screenMinPrice" type="number" step="0.01" value="10" placeholder="Min price" />
+              <select id="screenSector">
+                <option value="">All sectors</option>
+                <option value="Technology">Technology</option>
+                <option value="Healthcare">Healthcare</option>
+                <option value="Financial Services">Financial Services</option>
+                <option value="Consumer Defensive">Consumer Defensive</option>
+                <option value="Communication Services">Communication Services</option>
+                <option value="Energy">Energy</option>
+              </select>
+              <select id="screenSignal">
+                <option value="">Any signal</option>
+                <option value="BUY">BUY</option>
+                <option value="SELL">SELL</option>
+                <option value="HOLD">HOLD</option>
+              </select>
+              <button type="submit">Run Screener</button>
+            </form>
+            <div class="table-wrap" style="margin-top: 14px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Symbol</th>
+                    <th>Name</th>
+                    <th>Price</th>
+                    <th>Change</th>
+                    <th>Signal</th>
+                    <th>RSI</th>
+                    <th>Sector</th>
+                    <th>Market Cap</th>
+                  </tr>
+                </thead>
+                <tbody id="screenerBody"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+
+        <div class="stack">
+          <article class="card">
+            <div class="card-header">
+              <h2>Portfolio</h2>
+              <span class="muted">Paper positions and risk metrics</span>
+            </div>
+            <div class="mini-grid">
+              <div class="card" style="padding: 14px;">
+                <span class="muted">Cash</span>
+                <strong id="cashValue">$0.00</strong>
+              </div>
+              <div class="card" style="padding: 14px;">
+                <span class="muted">Unrealized P&amp;L</span>
+                <strong id="pnlValue">$0.00</strong>
+              </div>
+              <div class="card" style="padding: 14px;">
+                <span class="muted">Portfolio Beta</span>
+                <strong id="betaValue">0.00</strong>
+              </div>
+              <div class="card" style="padding: 14px;">
+                <span class="muted">Sharpe Ratio</span>
+                <strong id="sharpeValue">n/a</strong>
+              </div>
+            </div>
+            <div class="positions" id="positions" style="margin-top: 14px;"></div>
+            <p class="footer-note">Projected annual dividends: <span id="dividendValue">$0.00</span></p>
+          </article>
+
+          <article class="card">
+            <div class="card-header">
+              <h2>News Flow</h2>
+              <span class="muted">Cached for 5 minutes</span>
+            </div>
+            <div class="news-feed" id="newsFeed"></div>
+          </article>
+        </div>
+      </section>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const state = {
+        token: localStorage.getItem("stock-token") || "",
+        userId: localStorage.getItem("stock-user-id") || "demo_user",
+        symbol: localStorage.getItem("stock-symbol") || "AAPL",
+        socket: null,
+        sse: null,
+        chartDays: 30,
+        history: [],
+      };
+
+      const el = {
+        tokenInput: document.getElementById("tokenInput"),
+        userIdInput: document.getElementById("userIdInput"),
+        symbolInput: document.getElementById("symbolInput"),
+        connectBtn: document.getElementById("connectBtn"),
+        refreshBtn: document.getElementById("refreshBtn"),
+        openPaperTradingBtn: document.getElementById("openPaperTradingBtn"),
+        linkStatus: document.getElementById("linkStatus"),
+        ramValue: document.getElementById("ramValue"),
+        portfolioValue: document.getElementById("portfolioValue"),
+        alertCount: document.getElementById("alertCount"),
+        watchlistItems: document.getElementById("watchlistItems"),
+        heatmap: document.getElementById("heatmap"),
+        alertsList: document.getElementById("alertsList"),
+        quoteName: document.getElementById("quoteName"),
+        quotePrice: document.getElementById("quotePrice"),
+        quoteChange: document.getElementById("quoteChange"),
+        signalTypeChip: document.getElementById("signalTypeChip"),
+        signalStrengthChip: document.getElementById("signalStrengthChip"),
+        quoteMetaChip: document.getElementById("quoteMetaChip"),
+        ohlcText: document.getElementById("ohlcText"),
+        sentimentValue: document.getElementById("sentimentValue"),
+        sentimentBar: document.getElementById("sentimentBar"),
+        volumeValue: document.getElementById("volumeValue"),
+        quoteUpdatedAt: document.getElementById("quoteUpdatedAt"),
+        lastUpdateLabel: document.getElementById("lastUpdateLabel"),
+        realtimeDot: document.getElementById("realtimeDot"),
+        watchlistDot: document.getElementById("watchlistDot"),
+        realtimeLabel: document.getElementById("realtimeLabel"),
+        screenerBody: document.getElementById("screenerBody"),
+        cashValue: document.getElementById("cashValue"),
+        pnlValue: document.getElementById("pnlValue"),
+        betaValue: document.getElementById("betaValue"),
+        sharpeValue: document.getElementById("sharpeValue"),
+        positions: document.getElementById("positions"),
+        newsFeed: document.getElementById("newsFeed"),
+        dividendValue: document.getElementById("dividendValue"),
+        chartCanvas: document.getElementById("chartCanvas"),
+      };
+
+      el.tokenInput.value = state.token;
+      el.userIdInput.value = state.userId;
+      el.symbolInput.value = state.symbol;
+
+      function currency(value) {
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 2
+        }).format(Number(value || 0));
+      }
+
+      function compactNumber(value) {
+        return new Intl.NumberFormat("en-US", {
+          notation: "compact",
+          maximumFractionDigits: 2
+        }).format(Number(value || 0));
+      }
+
+      function relativeTime(timestamp) {
+        if (!timestamp) return "unknown";
+        const diff = Math.max(0, Date.now() - Number(timestamp));
+        if (diff < 60000) return "just now";
+        if (diff < 3600000) return Math.round(diff / 60000) + "m ago";
+        if (diff < 86400000) return Math.round(diff / 3600000) + "h ago";
+        return Math.round(diff / 86400000) + "d ago";
+      }
+
+      function setStatus(text, live) {
+        el.linkStatus.textContent = text;
+        el.realtimeLabel.textContent = live ? "live" : "offline";
+        el.realtimeDot.classList.toggle("live", Boolean(live));
+        el.watchlistDot.classList.toggle("live", Boolean(live));
+      }
+
+      function api(path, options = {}) {
+        if (!state.token) {
+          throw new Error("Enter your AUTH_TOKEN first.");
+        }
+        const headers = {
+          Authorization: "Bearer " + state.token,
+          "Content-Type": "application/json",
+          ...(options.headers || {})
+        };
+        return fetch(path, { ...options, headers }).then(async (response) => {
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data.error || "Request failed");
+          }
+          return data;
+        });
+      }
+
+      function renderWatchlist(watchlist) {
+        const items = watchlist?.items || [];
+        if (!items.length) {
+          el.watchlistItems.innerHTML = '<div class="watch-item muted">No symbols yet.</div>';
+          return;
+        }
+        el.watchlistItems.innerHTML = items
+          .map((symbol) => `<button class="watch-item" data-symbol="${symbol}">${symbol}</button>`)
+          .join("");
+        el.watchlistItems.querySelectorAll("[data-symbol]").forEach((button) => {
+          button.addEventListener("click", () => {
+            state.symbol = button.dataset.symbol;
+            el.symbolInput.value = state.symbol;
+            localStorage.setItem("stock-symbol", state.symbol);
+            refreshQuotePanel();
+          });
+        });
+      }
+
+      function renderHeatmap(items) {
+        el.heatmap.innerHTML = (items || [])
+          .map((entry) => {
+            const color = entry.changePercent >= 0 ? "var(--accent)" : "var(--danger)";
+            return `
+              <div class="heat-row">
+                <div style="display:flex;justify-content:space-between;gap:10px;">
+                  <strong>${entry.sector}</strong>
+                  <span style="color:${color};">${entry.changePercent.toFixed(2)}%</span>
+                </div>
+                <div class="news-meter" style="margin-top:8px;">
+                  <span style="width:${Math.min(100, Math.max(8, Math.abs(entry.changePercent) * 10 + 20))}%;background:${color};"></span>
+                </div>
+              </div>
+            `;
+          })
+          .join("");
+      }
+
+      function renderAlerts(alerts) {
+        el.alertCount.textContent = String(alerts.length);
+        el.alertsList.innerHTML = alerts.length
+          ? alerts
+              .map(
+                (alert) => `
+                  <div class="alert-item">
+                    <strong>${alert.symbol}</strong>
+                    <p>${alert.condition.toUpperCase()} ${currency(alert.targetPrice)}</p>
+                    <p class="${alert.status === "triggered" ? "positive" : "muted"}">${alert.status} • ${relativeTime(alert.createdAt)}</p>
+                  </div>
+                `
+              )
+              .join("")
+          : '<div class="alert-item muted">No alerts queued.</div>';
+      }
+
+      function renderPortfolio(portfolio) {
+        el.portfolioValue.textContent = currency(portfolio.totalValue);
+        el.cashValue.textContent = currency(portfolio.cash);
+        el.pnlValue.textContent = currency(portfolio.totalUnrealizedPnL);
+        el.pnlValue.className = portfolio.totalUnrealizedPnL >= 0 ? "positive" : "negative";
+        el.betaValue.textContent = Number(portfolio.risk?.beta || 0).toFixed(2);
+        el.sharpeValue.textContent = portfolio.risk?.sharpeRatio ?? "n/a";
+        el.dividendValue.textContent = currency(portfolio.dividendTracker?.projectedAnnualIncome || 0);
+
+        el.positions.innerHTML = portfolio.holdings.length
+          ? portfolio.holdings
+              .map(
+                (holding) => `
+                  <div class="position">
+                    <div style="display:flex;justify-content:space-between;gap:10px;">
+                      <strong>${holding.symbol}</strong>
+                      <span class="${holding.unrealizedPnL >= 0 ? "positive" : "negative"}">${currency(holding.unrealizedPnL)}</span>
+                    </div>
+                    <p>${holding.shares} shares @ ${currency(holding.avgPrice)}</p>
+                    <p>${currency(holding.currentPrice)} now • ${holding.relativeUpdatedAt}</p>
+                  </div>
+                `
+              )
+              .join("")
+          : '<div class="position muted">No positions yet. Use the paper trading page to place simulated orders.</div>';
+      }
+
+      function renderNews(news) {
+        const sentiment = Number(news.sentiment || 50);
+        el.sentimentValue.textContent = sentiment + " / 100";
+        el.sentimentBar.style.width = sentiment + "%";
+        el.newsFeed.innerHTML = (news.items || []).length
+          ? news.items
+              .map(
+                (item) => `
+                  <a class="news-item" href="${item.link}" target="_blank" rel="noreferrer">
+                    <strong>${item.title}</strong>
+                    <p>${item.summary || "No summary available."}</p>
+                    <p class="muted">${relativeTime(item.publishedAt)} • sentiment ${item.sentiment}</p>
+                  </a>
+                `
+              )
+              .join("")
+          : '<div class="news-item muted">No cached news for this symbol yet.</div>';
+      }
+
+      function renderScreener(payload) {
+        el.screenerBody.innerHTML = (payload.results || [])
+          .slice(0, 25)
+          .map(
+            (row) => `
+              <tr>
+                <td><button data-symbol-row="${row.symbol}">${row.symbol}</button></td>
+                <td>${row.name}</td>
+                <td>${currency(row.price)}</td>
+                <td class="${row.changePercent >= 0 ? "positive" : "negative"}">${row.changePercent.toFixed(2)}%</td>
+                <td>${row.signal} (${row.signalStrength}%)</td>
+                <td>${row.rsi ?? "n/a"}</td>
+                <td>${row.sector}</td>
+                <td>${compactNumber(row.marketCap)}</td>
+              </tr>
+            `
+          )
+          .join("");
+
+        el.screenerBody.querySelectorAll("[data-symbol-row]").forEach((button) => {
+          button.addEventListener("click", () => {
+            state.symbol = button.dataset.symbolRow;
+            el.symbolInput.value = state.symbol;
+            localStorage.setItem("stock-symbol", state.symbol);
+            refreshQuotePanel();
+          });
+        });
+      }
+
+      function drawChart(points) {
+        const canvas = el.chartCanvas;
+        const ctx = canvas.getContext("2d");
+        const width = canvas.width;
+        const height = canvas.height;
+        ctx.clearRect(0, 0, width, height);
+
+        ctx.fillStyle = "#03150b";
+        ctx.fillRect(0, 0, width, height);
+
+        if (!points.length) {
+          ctx.fillStyle = "#7acb95";
+          ctx.font = "18px Consolas";
+          ctx.fillText("No history cached yet.", 24, height / 2);
+          return;
+        }
+
+        const closes = points.map((point) => point.c);
+        const min = Math.min(...closes);
+        const max = Math.max(...closes);
+        const pad = 26;
+        const plotWidth = width - pad * 2;
+        const plotHeight = height - pad * 2;
+
+        ctx.strokeStyle = "rgba(42,255,138,0.18)";
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 4; i += 1) {
+          const y = pad + (plotHeight / 3) * i;
+          ctx.beginPath();
+          ctx.moveTo(pad, y);
+          ctx.lineTo(width - pad, y);
+          ctx.stroke();
+        }
+
+        const range = max - min || 1;
+        ctx.beginPath();
+        points.forEach((point, index) => {
+          const x = pad + (index / Math.max(points.length - 1, 1)) * plotWidth;
+          const y = pad + (1 - (point.c - min) / range) * plotHeight;
+          if (index === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+
+        const positive = points[points.length - 1].c >= points[0].c;
+        ctx.strokeStyle = positive ? "#2aff8a" : "#ff6b6b";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(42,255,138,0.18)";
+        ctx.lineTo(width - pad, height - pad);
+        ctx.lineTo(pad, height - pad);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = "#ccffd7";
+        ctx.font = "14px Consolas";
+        ctx.fillText(currency(max), 10, 20);
+        ctx.fillText(currency(min), 10, height - 10);
+      }
+
+      async function refreshQuotePanel() {
+        state.symbol = el.symbolInput.value.trim().toUpperCase() || state.symbol;
+        localStorage.setItem("stock-symbol", state.symbol);
+        const [quote, history, signals, news] = await Promise.all([
+          api("/api/quote/" + encodeURIComponent(state.symbol)),
+          api("/api/history/" + encodeURIComponent(state.symbol) + "?days=" + state.chartDays + "&timeframe=1d"),
+          api("/api/signals/" + encodeURIComponent(state.symbol)),
+          api("/api/news/" + encodeURIComponent(state.symbol))
+        ]);
+
+        state.history = history.points || [];
+        drawChart(state.history);
+
+        el.quoteName.textContent = `${quote.symbol} • ${quote.meta?.name || "Unknown company"}`;
+        el.quotePrice.textContent = currency(quote.price);
+        el.quoteChange.textContent = `${quote.change >= 0 ? "+" : ""}${Number(quote.change || 0).toFixed(2)} / ${Number(quote.changePercent || 0).toFixed(2)}%`;
+        el.quoteChange.className = quote.changePercent >= 0 ? "signal-badge positive" : "signal-badge negative";
+        el.signalTypeChip.textContent = "Signal: " + (signals.latest?.type || "HOLD");
+        el.signalStrengthChip.textContent = "Strength: " + (signals.latest?.strength || 50) + "%";
+        el.quoteMetaChip.textContent = "Source: " + (quote.cached ? "cache" : "live");
+        el.ohlcText.textContent = `${currency(quote.open)} / ${currency(quote.high)} / ${currency(quote.low)}`;
+        el.volumeValue.textContent = compactNumber(quote.volume || 0);
+        el.quoteUpdatedAt.textContent = relativeTime(quote.updatedAt);
+        el.lastUpdateLabel.textContent = "Last update " + relativeTime(quote.updatedAt);
+        renderNews(news);
+      }
+
+      async function refreshBootstrap() {
+        state.userId = el.userIdInput.value.trim() || "demo_user";
+        localStorage.setItem("stock-user-id", state.userId);
+        const payload = await api("/api/bootstrap?userId=" + encodeURIComponent(state.userId));
+        renderWatchlist(payload.watchlist);
+        renderHeatmap(payload.overview.sectorHeatmap || []);
+        renderPortfolio(payload.portfolio);
+        renderAlerts(payload.alerts || []);
+        el.ramValue.textContent = Number(payload.ram.rssMb || 0).toFixed(2) + " MB";
+      }
+
+      async function runScreener() {
+        const params = new URLSearchParams();
+        if (document.getElementById("screenMinPrice").value) params.set("minPrice", document.getElementById("screenMinPrice").value);
+        if (document.getElementById("screenSector").value) params.set("sector", document.getElementById("screenSector").value);
+        if (document.getElementById("screenSignal").value) params.set("signal", document.getElementById("screenSignal").value);
+        const payload = await api("/api/screener?" + params.toString());
+        renderScreener(payload);
+      }
+
+      function attachRealtime() {
+        if (state.socket) state.socket.close();
+        if (state.sse) state.sse.close();
+
+        state.socket = io({
+          auth: { token: state.token }
+        });
+
+        state.socket.on("connect", () => setStatus("Socket connected", true));
+        state.socket.on("disconnect", () => {
+          setStatus("Socket reconnecting", false);
+          attachSseFallback();
+        });
+        state.socket.on("hello", (payload) => {
+          el.ramValue.textContent = Number(payload.ram.rssMb || 0).toFixed(2) + " MB";
+        });
+        state.socket.on("prices:tick", (payload) => {
+          const match = (payload.quotes || []).find((quote) => quote.symbol === state.symbol);
+          if (match) {
+            refreshQuotePanel().catch(showError);
+          }
+        });
+        state.socket.on("portfolio:updated", (payload) => {
+          if (payload.userId === state.userId) renderPortfolio(payload.summary);
+        });
+        state.socket.on("alerts:triggered", (payload) => {
+          renderAlerts(payload.alerts || []);
+          refreshBootstrap().catch(showError);
+        });
+      }
+
+      function attachSseFallback() {
+        if (!state.token) return;
+        state.sse = new EventSource("/events?token=" + encodeURIComponent(state.token));
+        state.sse.addEventListener("ready", () => setStatus("SSE fallback active", true));
+        state.sse.addEventListener("prices:tick", () => refreshQuotePanel().catch(showError));
+        state.sse.addEventListener("news:updated", () => refreshQuotePanel().catch(showError));
+        state.sse.addEventListener("signals:updated", () => refreshQuotePanel().catch(showError));
+      }
+
+      function showError(error) {
+        setStatus(error.message || "Error", false);
+      }
+
+      async function connectDashboard() {
+        state.token = el.tokenInput.value.trim();
+        state.userId = el.userIdInput.value.trim() || "demo_user";
+        state.symbol = el.symbolInput.value.trim().toUpperCase() || "AAPL";
+        localStorage.setItem("stock-token", state.token);
+        localStorage.setItem("stock-user-id", state.userId);
+        localStorage.setItem("stock-symbol", state.symbol);
+        setStatus("Connecting...", false);
+        await Promise.all([refreshBootstrap(), refreshQuotePanel(), runScreener()]);
+        attachRealtime();
+        setStatus("Dashboard ready", true);
+      }
+
+      document.getElementById("watchlistForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+          const symbol = document.getElementById("watchlistSymbol").value.trim().toUpperCase();
+          const watchlist = await api("/api/watchlist/add", {
+            method: "POST",
+            body: JSON.stringify({ userId: state.userId, symbol })
+          });
+          document.getElementById("watchlistSymbol").value = "";
+          renderWatchlist(watchlist);
+        } catch (error) {
+          showError(error);
+        }
+      });
+
+      document.getElementById("alertForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+          await api("/api/alert", {
+            method: "POST",
+            body: JSON.stringify({
+              userId: state.userId,
+              symbol: document.getElementById("alertSymbol").value.trim().toUpperCase(),
+              condition: document.getElementById("alertCondition").value,
+              targetPrice: Number(document.getElementById("alertTarget").value)
+            })
+          });
+          document.getElementById("alertSymbol").value = "";
+          document.getElementById("alertTarget").value = "";
+          await refreshBootstrap();
+        } catch (error) {
+          showError(error);
+        }
+      });
+
+      document.getElementById("screenerForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        runScreener().catch(showError);
+      });
+
+      document.querySelectorAll(".timeframe-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.chartDays = Number(button.dataset.days || 30);
+          document.querySelectorAll(".timeframe-btn").forEach((item) => item.classList.remove("btn-primary"));
+          button.classList.add("btn-primary");
+          refreshQuotePanel().catch(showError);
+        });
+      });
+
+      el.connectBtn.addEventListener("click", () => connectDashboard().catch(showError));
+      el.refreshBtn.addEventListener("click", () => Promise.all([refreshBootstrap(), refreshQuotePanel(), runScreener()]).catch(showError));
+      el.openPaperTradingBtn.addEventListener("click", () => {
+        const token = encodeURIComponent(el.tokenInput.value.trim());
+        const userId = encodeURIComponent(el.userIdInput.value.trim() || "demo_user");
+        window.location.href = `/paper-trading.html?token=${token}&userId=${userId}`;
+      });
+
+      setInterval(() => {
+        if (state.token) {
+          refreshBootstrap().catch(() => {});
+        }
+      }, 30000);
+
+      if (state.token) {
+        connectDashboard().catch(() => setStatus("Enter token to begin", false));
+      } else {
+        setStatus("Enter token to begin", false);
+      }
+    </script>
+  </body>
+</html>
